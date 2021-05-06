@@ -1,0 +1,95 @@
+#  brnbdyNCR2Jags.txt
+#  Michael Escobar
+#  January 28, 2013
+# -------------------------
+#
+#  This program runs WinBUGS through R via R2WinBUGS
+#  this runs the brnbdy example 
+#
+
+
+library(R2jags)
+# note: need R version >2.14.0
+# need Jags installed
+#  NOTE: after loading R2jags, R2OpenBUGS no longer runs...
+#
+
+#### change this to what directory everything is in....
+WorkDir<-"c:/mike workstation/BayesCourse10/week 4 files/"
+
+setwd(WorkDir)
+
+datafile<-paste(WorkDir,"/","brnbdy.csv",sep="")
+brnbdy.dat<- read.table(datafile,header=TRUE,sep=",")
+attach(brnbdy.dat);
+N<-62
+
+data<-list("N","body", "brain")
+inits<-function(){ list(alpha=1,beta=1,tau=1)}
+parameters<-c("alpha", "beta", "tau")
+
+
+
+cat("
+data{
+for(i in 1:N){
+lgbrain[i]<-log(brain[i])
+lgbody[i]<-log(body[i])
+}}
+model{
+for(i in 1:N){
+ lgbrain[i]~dnorm(mu[i],tau)
+ mu[i]<-alpha +beta*lgbody[i]
+}
+alpha~dnorm(0,.0001)
+beta~dnorm(0,.0001)
+tau~dgamma(.0001,.0001)
+}", file="JBrnBodMod.txt")
+### note: in the above, needed to make a "data" block for jags.
+
+
+### note: instead of "jags" from R2jags, one could use package rjags
+Jbrnbdy.sim<-jags(data,inits, parameters,model.file="JBrnBodMod.txt",
+  n.chains=1, n.iter=10000, n.burnin=700,
+  n.thin=1  )  #  
+  
+print(Jbrnbdy.sim)
+plot(Jbrnbdy.sim)
+
+traceplot(Jbrnbdy.sim)
+
+str(Jbrnbdy.sim)
+
+names(Jbrnbdy.sim)
+dim(Jbrnbdy.sim$BUGSoutput$sims.array)
+
+out.sim<-Jbrnbdy.sim$BUGSoutput$sims.array
+
+plot(out.sim[,1,1],out.sim[,1,2],xlab="alpha",ylab="beta")
+junk=locator(1)    
+#### locator() stops the plot and waits for you to click on the plot
+plot(out.sim[,1,1],out.sim[,1,2])
+junk=locator(1)
+ts.plot(out.sim[,1,1])
+junk=locator(1)
+plot(density(out.sim[,1,1]))
+junk=locator(1)
+plot(density(out.sim[,1,1]),xlab="alpha")
+junk=locator(1)
+##### note: can specify the variable by "name"
+plot(density(out.sim[,1,"alpha"]),xlab="alpha")
+junk=locator(1)
+plot(density(out.sim[,1,"beta"]),xlab="beta")
+
+########  how to loop throught the different parameters
+########  use names to get names of paramaters,
+########  and then use the names to specify the correct element
+
+outparm=names(out.sim[1,1,])
+outparm
+l.outparm=length(outparm)
+for( j in 1:l.outparm){
+   plot(density(out.sim[,1,outparm[j]]), xlab=outparm[j]) 
+   junk=locator(1)
+   ts.plot(out.sim[,1,outparm[j]],xlab=outparm[j])
+   junk=locator(1)}

@@ -1,0 +1,1534 @@
+
+ WorkDir<- "c:/mike workstation/Bayescourse9/Examples/CowShock"
+ # Note: change this to the file where everything is
+ setwd(WorkDir)
+  
+#  specify where the WinBugs files are:
+#  WinDir="c:/Program Files/WinBUGS14/"
+WinDir="c:/MyProg/WinBugs14/"
+
+ #
+ #  set to export plots
+ #
+ploton=TRUE
+if(ploton){ pdf("prelimPlots.pdf")}
+
+ 
+ 
+ CowShock=read.table("CowShock.dat",header=TRUE,sep = "")
+ attach(CowShock)
+ 
+ #  make dataset w/ and w/o zero's in current
+ 
+ cowW0=cow
+ blockW0=block
+ YW0=Y
+ currW0=curr
+ NW0=N
+ 
+#####
+NZ= (curr!=0)
+cowWo0=cow[NZ]
+blockWo0=block[NZ]
+YWo0=Y[NZ]
+currWo0=curr[NZ]
+NWo0=N[NZ]            
+ 
+MakeN0data=function(){
+assign("cow", cowW0, envir=.GlobalEnv)
+assign("block", blockW0, envir=.GlobalEnv)
+assign("Y",YW0, envir=.GlobalEnv)
+assign("curr", currW0, envir=.GlobalEnv)
+assign("N", NW0, envir=.GlobalEnv)
+} 
+
+Make0data=function(){
+assign("cow", cowWo0, envir=.GlobalEnv)
+assign("block", blockWo0, envir=.GlobalEnv)
+assign("Y",YWo0, envir=.GlobalEnv)
+assign("curr", currWo0, envir=.GlobalEnv)
+assign("N",NWo0, envir=.GlobalEnv)
+} 
+
+MakeN0data()
+ 
+ #
+ 
+ #
+ #  Bayesian analysis
+ #
+ #  First, load R2WinBUGS and load Data
+ #-------------------------------------
+ #  First set will be for all Currents
+ #
+ #
+ 
+ 
+ 
+library(R2WinBUGS)
+MakeN0data()
+Nobs=84
+
+
+data<-list("Nobs", "cow", "block","Y","curr","N")
+
+
+#
+#-------------------------------------------
+# overdisperse model
+#
+#
+
+cat("
+#
+#######################
+#
+#  CowShockModRedOvrGam.txt
+#  --model has: redundant parameters,overdisper, gamma precisions
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]+1] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[])  + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:6){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+tau.curr~dgamma(.1,.4)
+}", file="AROGmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(6,0,1),tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROG<-bugs(data,inits,parameters, model.file="AROGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockROG)
+
+#
+# overidspersed with scatter starting points.
+#
+
+
+ # overdisperse model w/ scatter starts.
+ #  also, shrink the variance in the initial values
+ #
+ inits<-function(){
+      ccc=runif(4,-3,3);
+      list(b.cow=ccc[1]+rnorm(7,0,.1),b.block=ccc[2]+rnorm(1,0,.1),
+      b.curr=ccc[3]+rnorm(6,0,.1),tau=runif(1,.5,2),
+      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+      b.0=-sum(ccc)+rnorm(1,0,.1),b=ccc[4]+rnorm(Nobs,0,.1))
+      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROdd<-bugs(data,inits,parameters, model.file="AROGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir #,debug=TRUE
+                    )
+        }            
+print(CowShockROdd)
+
+
+ 
+##############
+#  Using a large uniform for std of priors
+#
+
+cat("
+#
+#######################
+#
+#  ModRedOvrUnf
+#  --model has: redundant parameters,overdisper, Uniform Standar Dev.
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]+1] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[])  + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:6){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+#tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+sd~dunif(0,20)
+sd.cow~dunif(0,20)
+sd.curr~dunif(0,20)
+tau<-1/sd/sd
+tau.cow<-1/sd.cow/sd.cow
+tau.curr<-1/sd.curr/sd.curr
+}", file="AROUmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(6,0,1),sd=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      sd.curr=1/sqrt(runif(1,.5,2)),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROU<-bugs(data,inits,parameters, model.file="AROUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockROU)
+
+#######################################
+
+# not overdisperse model
+
+cat("
+#######################
+#
+#  ARNoGmod.txt
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]+1]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:6){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+#tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+tau.curr~dgamma(.1,.4)
+}", file="ARNoGmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(6,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1), b.curr.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+     "b.block",#"b","b.adj",
+     #"tau",
+     "tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockR<-bugs(data,inits,parameters, model.file="ARNoGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir,#debug=TRUE
+                    )
+        }            
+print(CowShockR)
+
+#######################################
+
+# not overdisperse model, Uniform prior for STD 
+
+cat("
+#######################
+#
+#  ARNoUmod.txt
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]+1]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:6){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+##tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+sd.cow~dunif(0,20)
+sd.curr~dunif(0,20)
+tau.cow<-1/sd.cow/sd.cow
+tau.curr<-1/sd.curr/sd.curr
+}", file="ARNoUmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(6,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      sd.curr=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1), b.curr.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+     "b.block",#"b","b.adj",
+     #"tau",
+     "tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockRU<-bugs(data,inits,parameters, model.file="ARNoUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir,#debug=TRUE
+                    )
+        }            
+print(CowShockRU)
+
+
+ 
+#####################################
+
+#
+# fitting other models...
+#  w/ current as a linear effect
+#
+#   overdisp, linear current, gamma prior
+
+cat("
+#######################
+#
+#  CowShockModLinOvr.txt
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])   + mean(b[]) # redundant parameter design
+# +mean(b.curr[])
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+}", file="ALOGmod.txt") 
+ 
+ 
+# Linear Current w/o overdispersion
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+
+
+ 
+data<-list( "Nobs", "cow", "block","Y","curr","N")
+ 
+# overdisperse model
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow")
+ 
+ if(TRUE){
+   CowShockLO<-bugs(data,inits,parameters, model.file="ALOGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLO)
+
+ 
+#####################################
+
+#
+# fitting other models...
+#  w/ current as a linear effect
+#
+#   overdisp, linear current, uniform prior
+
+cat("
+#######################
+#  Overdisp, linear current, uniform prior on SD's
+#  
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])   + mean(b[]) # redundant parameter design
+# +mean(b.curr[])
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+#tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+##tau.curr~dgamma(.1,.4)
+sd~dunif(0,20)
+sd.cow~dunif(0,20)
+tau<-1/sd/sd
+tau.cow<-1/sd.cow/sd.cow
+}", file="ALOUmod.txt") 
+ 
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj","tau",
+      "tau.cow")
+
+
+ 
+data<-list("Nobs", "cow", "block","Y","curr","N")
+ 
+# overdisperse model
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      sd=1/sqrt(runif(1,.5,2)), sd.cow=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow")
+ 
+ if(TRUE){
+   CowShockLOU<-bugs(data,inits,parameters, model.file="ALOUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLOU)
+
+
+
+###########################
+
+cat("
+#######################
+#
+#  Linear Current effect, Not overdisp, Gamma prior on precisions
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])# +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+#tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+}", file="ALNoGmod.txt")
+
+ 
+# Linear Current w/o overdispersion
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+ 
+if(TRUE){
+   CowShockL<-bugs(data,inits,parameters, model.file="ALNoGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockL)
+ 
+
+
+###########################
+
+cat("
+#######################
+#
+#  Linear Current effect, Not overdisp, Uniform prior on STD
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])# +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+##tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+##tau.curr~dgamma(.1,.4)
+sd.cow~dunif(0,20)
+tau.cow<-1/sd.cow/sd.cow
+}", file="ALNoUmod.txt")
+
+ 
+# Linear Current w/o overdispersion
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+ 
+if(TRUE){
+   CowShockLU<-bugs(data,inits,parameters, model.file="ALNoUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLU)
+ 
+
+ModResult=c("CowShockROG", "CowShockROdd", "CowShockROU", "CowShockR",
+"CowShockRU", "CowShockLO", "CowShockLOU", "CowShockL", "CowShockLU")
+
+
+(get(ModResult[1]))["pD"]
+
+data.frame(
+  cbind( ModResult,
+         sapply(ModResult,function(x){(get(x))$pD}),
+         sapply(ModResult,function(x){(get(x))$DIC}),
+         sapply(ModResult,function(x){(get(x))$mean$deviance}) 
+         ))
+ 
+
+
+
+################################################
+####### Start with data that deletes currents = zero
+##################################################
+
+Make0data()
+Nobs=70
+data<-list("Nobs", "cow", "block","Y","curr","N")
+
+
+#
+#-------------------------------------------
+# overdisperse model
+#    NO ZERO/CURRENTS
+#
+
+cat("
+#
+#######################
+#
+#  CowShockModRedOvrGam.txt
+#  --model has: redundant parameters,overdisper, gamma precisions
+#    NO ZERO/CURRENTS
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[])  + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:5){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+tau.curr~dgamma(.1,.4)
+}", file="AROGNZmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(5,0,1),tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROGNZ<-bugs(data,inits,parameters, model.file="AROGNZmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockROGNZ)
+
+#
+# overidspersed with scatter starting points.
+#
+
+
+ # overdisperse model w/ scatter starts.
+ #  also, shrink the variance in the initial values
+ #
+ inits<-function(){
+      ccc=runif(4,-3,3);
+      list(b.cow=ccc[1]+rnorm(7,0,.1),b.block=ccc[2]+rnorm(1,0,.1),
+      b.curr=ccc[3]+rnorm(5,0,.1),tau=runif(1,.5,2),
+      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+      b.0=-sum(ccc)+rnorm(1,0,.1),b=ccc[4]+rnorm(Nobs,0,.1))
+      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROddNZ<-bugs(data,inits,parameters, model.file="AROGNZmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir #,debug=TRUE
+                    )
+        }            
+print(CowShockROddNZ)
+
+
+ 
+##############
+#  Using a large uniform for std of priors
+#
+
+cat("
+#
+#######################
+#
+#  ModRedOvrUnf
+#  --model has: redundant parameters,overdisper, Uniform Standar Dev.
+#    No zero current
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[])  + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:5){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+#tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+sd~dunif(0,20)
+sd.cow~dunif(0,20)
+sd.curr~dunif(0,20)
+tau<-1/sd/sd
+tau.cow<-1/sd.cow/sd.cow
+tau.curr<-1/sd.curr/sd.curr
+}", file="AROUNZmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(5,0,1),sd=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      sd.curr=1/sqrt(runif(1,.5,2)),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockROUNZ<-bugs(data,inits,parameters, model.file="AROUNZmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockROUNZ)
+
+#######################################
+
+# not overdisperse model
+
+cat("
+#######################
+#
+#  ARNoGmod.txt
+#    No zero current
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:5){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+#tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+tau.curr~dgamma(.1,.4)
+}", file="ARNoGNZmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(5,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1), b.curr.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+     "b.block",#"b","b.adj",
+     #"tau",
+     "tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockRNZ<-bugs(data,inits,parameters, model.file="ARNoGNZmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir,#debug=TRUE
+                    )
+        }            
+print(CowShockRNZ)
+
+#######################################
+
+# not overdisperse model, Uniform prior for STD 
+
+cat("
+#######################
+#
+#  ARNoUmod.txt
+#   no zero currents
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:5){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+##tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+sd.cow~dunif(0,20)
+sd.curr~dunif(0,20)
+tau.cow<-1/sd.cow/sd.cow
+tau.curr<-1/sd.curr/sd.curr
+}", file="ARNoUNZmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(5,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      sd.curr=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1), b.curr.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+     "b.block",#"b","b.adj",
+     #"tau",
+     "tau.cow","tau.curr")
+ 
+if(TRUE){
+   CowShockRUNZ<-bugs(data,inits,parameters, model.file="ARNoUNZmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir,#debug=TRUE
+                    )
+        }            
+print(CowShockRUNZ)
+
+
+ 
+#####################################
+
+#
+# fitting other models...
+#  w/ current as a linear effect
+#
+#   overdisp, linear current, gamma prior
+
+cat("
+#######################
+#
+#  CowShockModLinOvr.txt
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])   + mean(b[]) # redundant parameter design
+# +mean(b.curr[])
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+}", file="ALOGmod.txt") 
+ 
+ 
+# Linear Current w/o overdispersion
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+
+
+ 
+data<-list("Nobs", "cow", "block","Y","curr","N")
+ 
+# overdisperse model
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow")
+ 
+ if(TRUE){
+   CowShockLONZ<-bugs(data,inits,parameters, model.file="ALOGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLONZ)
+
+ 
+#####################################
+
+#
+# fitting other models...
+#  w/ current as a linear effect
+#
+#   overdisp, linear current, uniform prior
+
+cat("
+#######################
+#  Overdisp, linear current, uniform prior on SD's
+#  
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])   + mean(b[]) # redundant parameter design
+# +mean(b.curr[])
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+#tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+##tau.curr~dgamma(.1,.4)
+sd~dunif(0,20)
+sd.cow~dunif(0,20)
+tau<-1/sd/sd
+tau.cow<-1/sd.cow/sd.cow
+}", file="ALOUmod.txt") 
+ 
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj","tau",
+      "tau.cow")
+
+
+ 
+data<-list("Nobs", "cow", "block","Y","curr","N")
+ 
+# overdisperse model
+ inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      sd=1/sqrt(runif(1,.5,2)), sd.cow=1/sqrt(runif(1,.5,2)),
+                      b.cow.0=rnorm(1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+ parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow")
+ 
+ if(TRUE){
+   CowShockLOUNZ<-bugs(data,inits,parameters, model.file="ALOUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLOUNZ)
+
+
+
+###########################
+
+cat("
+#######################
+#
+#  Linear Current effect, Not overdisp, Gamma prior on precisions
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])# +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+#tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+#tau.curr~dgamma(.1,.4)
+}", file="ALNoGmod.txt")
+
+ 
+# Linear Current w/o overdispersion
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+ 
+if(TRUE){
+   CowShockLNZ<-bugs(data,inits,parameters, model.file="ALNoGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLNZ)
+ 
+
+
+###########################
+
+cat("
+#######################
+#
+#  Linear Current effect, Not overdisp, Uniform prior on STD
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr*curr[i]+b.0
+#+b[i]
+#b[i]~dnorm(0, tau)    # overdispersion parameter
+#b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[])# +mean(b.curr[]) # + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+b.curr~dnorm(0,.001)
+#for(jcr in 1:6){
+#b.curr[jcr]~dnorm(0,tau.curr)
+#b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+
+##tau~dgamma(.1,.4)
+#tau.cow~dgamma(.1,.4)
+##tau.curr~dgamma(.1,.4)
+sd.cow~dunif(0,20)
+tau.cow<-1/sd.cow/sd.cow
+}", file="ALNoUmod.txt")
+
+ 
+# Linear Current w/o overdispersion
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(1,0,1),#tau=runif(1,.5,2),
+                      #tau.cow=runif(1,.5,2),#tau.curr=runif(1,.5,2),
+                      sd.cow=1/sqrt(runif(1,.5,2)),
+                      b.0=rnorm(1,0,1)#,b=rnorm(Nobs,0,1)
+                      )}
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.0","b.0.adj",
+      "b.block",#"b","b.adj",
+      #"tau",
+      "tau.cow")
+ 
+if(TRUE){
+   CowShockLUNZ<-bugs(data,inits,parameters, model.file="ALNoUmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+        }            
+print(CowShockLUNZ)
+ 
+
+ModResultNZ=c("CowShockROGNZ", "CowShockROddNZ", "CowShockROUNZ", "CowShockRNZ",
+"CowShockRUNZ", "CowShockLONZ", "CowShockLOUNZ", "CowShockLNZ", "CowShockLUNZ")
+
+
+data.frame(
+  cbind( ModResultNZ,
+         sapply(ModResultNZ,function(x){(get(x))$pD}),
+         sapply(ModResultNZ,function(x){(get(x))$DIC}),
+         sapply(ModResultNZ,function(x){(get(x))$mean$deviance}) 
+         ))
+ 
+
+
+
+
+
+
+
+
+
+
+##################################
+#####
+#####    some analysis of the fitted models
+#####
+################################## 
+
+str(CowShockROG)
+
+
+#### look at some plots of fitted values
+####
+####  first via box plots
+####
+
+CurrMod=CowShockROG
+CurrModCur=CurrMod$sims.list$b.curr.adj
+boxplot(data.frame(CurrModCur), main="predicted log odds")
+B00=CurrMod$sims.list$b.0.adj
+boxplot(data.frame(CurrMod$sims.list$b.cow.adj), main="Model:ROG",
+  xlab="Cow.adj")
+boxplot(data.frame(CurrMod$sims.list$b.curr.adj), main="Model:ROG",
+  xlab="Curr.adj")
+
+
+### some different boxplots of Current:
+boxplot(data.frame(CowShockR$sims.list$b.curr.adj), main="Model:R",
+  xlab="Curr.adj")
+boxplot(data.frame(CowShockROG$sims.list$b.curr.adj), main="Model:ROG",
+  xlab="Curr.adj")
+boxplot(data.frame(CowShockROGNZ$sims.list$b.curr.adj), main="Model:ROGNZ",
+  xlab="Curr.adj")
+boxplot(data.frame(CowShockRNZ$sims.list$b.curr.adj), main="Model:RNZ",
+  xlab="Curr.adj")
+boxplot(data.frame(CowShockRUNZ$sims.list$b.curr.adj), main="Model:RUNZ",
+  xlab="Curr.adj")
+boxplot(data.frame(CowShockRU$sims.list$b.curr.adj), main="Model:RU",
+  xlab="Curr.adj")
+
+
+
+
+####  densities of the main effects
+####  Current
+plot(density(CurrMod$sims.list$b.block))
+
+maxY=0;
+for(i in 1:6){maxY=max(c(maxY, 
+                    max((density(CowShockROG$sims.list$b.curr.adj[,i]))$y)
+                    ))   }
+plot(c(-10,10),c(0,maxY), type="n", main="Current Effects",
+  sub="Black:ROG; Red:ROU")
+for(i in 1:6){lines(density(CowShockROG$sims.list$b.curr.adj[,i]))}
+for(i in 1:6){lines(density(CowShockROU$sims.list$b.curr.adj[,i]),col=2)}
+
+####  densities of the main effects
+####  Cow
+maxY=0;
+for(i in 1:7){maxY=max(c(maxY, 
+                    max((density(CowShockROG$sims.list$b.cow.adj[,i]))$y)
+                    ))   }
+plot(c(-3.5,3.5),c(0,maxY), type="n", main="Cow Effects",
+  sub="Black:ROG; Red:ROU")
+for(i in 1:7){lines(density(CowShockROG$sims.list$b.cow.adj[,i]))}
+
+for(i in 1:7){lines(density(CowShockROU$sims.list$b.cow.adj[,i]),col=2)}
+
+
+
+###
+
+plot(density(1/sqrt(CowShockROG$sims.list$tau)), main="STD of RE",
+  sub="red for uniform prior on STD" )
+lines(density(1/sqrt(CowShockROU$sims.list$tau)), col=2)
+
+
+plot(density(CowShockROG$sims.list$tau), main="Precision of RE",
+  sub="red for uniform prior on STD" )
+lines(density(CowShockROU$sims.list$tau), col=2)
+
+
+plot(density(1/sqrt(CowShockROG$sims.list$tau.cow)),main="STD of cow effect",
+  sub="Red for model w/o overdisperse")
+lines(density(1/sqrt(CowShockR$sims.list$tau.cow)),col=2)
+
+
+
+plot(density(CowShockROG$sims.list$tau.curr), main="Tau.curr",
+  sub="model:ROG")
+
+
+
+plot(density(CowShockROG$sims.list$deviance),main="Deviance")
+lines(density(CowShockROU$sims.list$deviance), col=2)
+lines(density(CowShockR$sims.list$deviance), col=3)
+lines(density(CowShockLOU$sims.list$deviance), col=4)
+lines(density(CowShockL$sims.list$deviance), col=5)
+lines(density(CowShockLU$sims.list$deviance), col=6)
+lines(density(CowShockRU$sims.list$deviance), col=7)
+
+
+
+
+
+#
+#  Use this to get the names columns
+#
+attr(CowShockROG$sims.array,"dimnames")
+
+
+#  a matrix with the three chains.
+#
+attr(CowShockROG$sims.array,"dimnames")[[3]][18]
+
+
+#### histogram plots
+####
+xx=matrix(1:5000,5000,1)
+matplot(xx,CowShockROG$sims.array[,,18],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][18], type="l",lty=1)
+
+
+matplot(xx,CowShockROdd$sims.array[,,18],
+  main=attr(CowShockROdd$sims.array,"dimnames")[[3]][18], type="l",lty=1)
+
+#######################################33
+
+xx=matrix(1:5000,5000,1)
+matplot(xx,CowShockROG$sims.array[,,24],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][24], type="l",lty=1)
+
+
+matplot(xx,CowShockROdd$sims.array[,,24],
+  main=attr(CowShockROdd$sims.array,"dimnames")[[3]][24], type="l",lty=1)
+
+iind=seq(1000,1200)
+matplot(iind,CowShockROdd$sims.array[iind,,24],
+  main=attr(CowShockROdd$sims.array,"dimnames")[[3]][24], type="l",lty=1)
+
+plot(density(CowShockROdd$sims.array[,1,24]),
+ main=attr(CowShockROdd$sims.array,"dimnames")[[3]][24])
+lines(density(CowShockROdd$sims.array[,3,24]))
+lines(density(CowShockROdd$sims.array[,2,24]))
+plot(density(CowShockROdd$sims.array[,1,18]),
+ main=attr(CowShockROdd$sims.array,"dimnames")[[3]][18])
+lines(density(CowShockROdd$sims.array[,2,18]))
+lines(density(CowShockROdd$sims.array[,3,18]))
+
+
+
+################################################################
+################################################################
+#
+#  looking at the autocorrelation functions
+#
+
+
+#  these look at one variable in one chain
+acf(CowShockROG$sims.array[,1,18],
+     main=attr(CowShockROG$sims.array,"dimnames")[[3]][18],lag.max=100)
+acf(CowShockROG$sims.array[,1,24],
+     main=attr(CowShockROG$sims.array,"dimnames")[[3]][24],lag.max=100)
+
+#  these look are relationship between chains
+acf(CowShockROG$sims.array[,,18],
+   main=attr(CowShockROG$sims.array,"dimnames")[[3]][18],lag.max=100)
+acf(CowShockROG$sims.array[,,24],
+   main=attr(CowShockROG$sims.array,"dimnames")[[3]][24],lag.max=100)
+
+# these show a relation between non adjusted but no relation btw adjusted.
+acf(CowShockROG$sims.array[,1,c(1,8,27)],lag.max=100)
+acf(CowShockROG$sims.array[,1,c(1,8,27)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(1,8,27)],lag.max=100)
+acf(CowShockROG$sims.array[,1,c(1,2,8,9)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(1,2,8,9)],lag.max=50)
+
+
+#  these look at two cows or two currents.. w/ and w/o adjustment: 
+ acf(CowShockROG$sims.array[,1,c(1,2)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(1,2)],lag.max=100)
+ acf(CowShockROG$sims.array[,1,c(8,9)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(8,9)],lag.max=100)
+ acf(CowShockROG$sims.array[,1,c(18,19)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(18,19)],lag.max=100)
+ acf(CowShockROG$sims.array[,1,c(24,25)],
+  main=attr(CowShockROG$sims.array,"dimnames")[[3]][c(24,25)],lag.max=100)
+ 
+
+
+if(ploton){ dev.off()}
+
+################
+#
+#   getting main output statistics
+#   for each model
+#
+
+#print(CowShockROG)
+#print(CowShockROdd)
+#print(CowShockR)
+#print(CowShockLO)
+#print(CowShockL)
+ 
+ 
+
+####  DIC values
+
+ModResult=c("CowShockROG", "CowShockROdd", "CowShockROU", "CowShockR",
+"CowShockRU", "CowShockLO", "CowShockLOU", "CowShockL", "CowShockLU")
+
+data.frame(
+  cbind( ModResult,
+         sapply(ModResult,function(x){(get(x))$pD}),
+         sapply(ModResult,function(x){(get(x))$DIC}),
+         sapply(ModResult,function(x){(get(x))$mean$deviance}) 
+         ))
+ 
+ModResultNZ=c("CowShockROGNZ", "CowShockROddNZ", "CowShockROUNZ", "CowShockRNZ",
+"CowShockRUNZ", "CowShockLONZ", "CowShockLOUNZ", "CowShockLNZ", "CowShockLUNZ")
+
+
+data.frame(
+  cbind( ModResultNZ,
+         sapply(ModResultNZ,function(x){(get(x))$pD}),
+         sapply(ModResultNZ,function(x){(get(x))$DIC}),
+         sapply(ModResultNZ,function(x){(get(x))$mean$deviance}) 
+         ))

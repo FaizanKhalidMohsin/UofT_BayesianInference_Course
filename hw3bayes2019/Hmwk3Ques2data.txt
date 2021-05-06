@@ -1,0 +1,43 @@
+Code for Homework 3 year 2017
+M. Escobar
+March 6, 2017
+
+This is the data and the model files for Homework 3 question 2
+
+list( x=c(16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46),
+y=c(2508,2518,3304,3423,3057,3190,3500,3883,3823,3646,3708,
+3333,3517,3241,3103,2776))
+
+
+Consider two models for this data.  The first model predicts the 
+population as a linear function of the date and the second predicts with a quadratic function.  The following WinBugs code will fit these models (This information is in a txt file that is sent with this file.  You can get the the data and model codes from that file and you won't have to type them in):
+
+
+Model 1:
+
+model{
+for(i in 1:16){
+  y[i]~dnorm(mu[i],tau)
+  mu[i]<- b[1] + b[2]*(x[i]-31)
+}
+b[1]~dnorm(0,.000001)
+b[2]~dnorm(0,.000001)
+tau~dgamma(.0001,.0001)
+}
+
+
+
+
+Model 2:
+
+model{
+for(i in 1:16){
+  y[i]~dnorm(mu[i],tau)
+  mu[i]<- b[1] + b[2]*(x[i]-31)+ b[3]*pow((x[i]-31),2)
+}
+b[1]~dnorm(0,.000001)
+b[2]~dnorm(0,.000001)
+b[3]~dnorm(0,.01)
+tau~dgamma(.0001,.0001)
+}
+

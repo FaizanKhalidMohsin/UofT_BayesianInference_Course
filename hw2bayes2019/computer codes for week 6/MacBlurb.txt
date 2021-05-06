@@ -1,0 +1,39 @@
+To all Mac users:
+
+For everyone who uses a Mac, could you please tell me if you have or have not been successful installing Jags or Openbugs.  Also, if you have been successful running either of these programs throught R.
+
+For those who have been successful, would it possible to send me the link to whatever website you found helpful.
+
+For those who have not been successful, after my signiture are some links that I found.  I don't have a Mac,so I don't know if any of those work.  I also realize that you might have already tried these links.  I don't mean to disrespect your intelligence.  I'm just trying to solve a problem.
+
+Thank you,
+
+Mike
+m.escobar@utoronto.ca
+
+
+
+
+-------------
+
+
+OpenBugs/Jags on Mac
+
+Info on Jags:
+Latest post I've seen is:
+https://martynplummer.wordpress.com/2015/10/13/jags-4-0-1-for-mac-os-x/#comments
+ 
+Here is a step-by-step by someone.  It is from 2012 though:
+http://www.r-bloggers.com/installing-and-running-jags-on-mac-os-10-5-8/
+
+
+Here is comments about OpenBugs.  (It mentions the use of WINE.  Also, there is some comments about some difficult with
+R2OpenBugs... )
+http://www.openbugs.net/w/Downloads
+
+
+Jags example:
+http://www.johnmyleswhite.com/notebook/2010/08/20/using-jags-in-r-with-the-rjags-package/
+https://darrenjw.wordpress.com/2012/10/02/inlining-jags-models-in-r-scripts-for-rjags/
+and here:
+https://www.rochester.edu/college/psc/thestarlab/help/JAGS.pdf

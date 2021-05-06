@@ -1,0 +1,150 @@
+#
+#  February 2, 2015
+#   This is a modified version which runs OpenBUGS instead of WinBugs
+#  this runs the Diamond example 
+#
+
+library(R2OpenBUGS)
+# note: need R version >2.14.0
+# need OpenBUGS installed
+
+#### change this to what directory everything is in....
+WorkDir<-"c:/mike workstation/BayesCourse12/Examples/anova/data/"
+
+
+setwd(WorkDir)
+
+
+##################
+####   read data
+##################
+
+
+datafile<-paste(WorkDir,"/","diamondDat.csv",sep="")
+diamond.dat<- read.table(datafile,header=TRUE,sep=",")
+attach(diamond.dat);
+N<- length(carat)
+
+#######################
+##
+##   write model file
+##
+#######################
+
+
+cat("
+#############################################
+#############################################
+#
+#  File: diamondB2RedMod.txt
+#
+#  This file contains the model file for Winbugs
+#
+#############################################
+
+model{
+for (i in 1:308){
+lnprice[i] ~ dnorm(mu[i],tau)
+mu[i] <- b.0 + carateff[i]+ coleff[i] + clareff[i] + certeff[i]
+carateff[i]<- b.car*(carat[i]-0.63)  # carat effect 
+coleff[i]<- b.col[color[i]] # color effect
+clareff[i]<-b.clar[clar[i]] # clarity effect
+certeff[i]<-b.cert[cert[i]] # certification group effect
+#
+#  dummy out price since not used
+#
+price[i]~dnorm(0,1)
+}
+
+for(icol in 1:6){ 
+   b.col[icol]~dnorm(b.colmu,tau.col)
+  b.col.adj[icol]<-b.col[icol] -mean(b.col[])   }
+for(iclar in 1:5){
+  b.clar[iclar]~dnorm(b.clarmu,tau.clar)
+  b.clar.adj[iclar]<-b.clar[iclar]-mean(b.clar[]) }
+for(icert in 1:3){
+  b.cert[icert]~dnorm(b.certmu,tau.cert)
+  b.cert.adj[icert]<-b.cert[icert]-mean(b.cert[]) }
+
+b.0~dnorm(0,tau.0)
+  b.0.adj<-b.0+mean(b.col[])+mean(b.clar[])+mean(b.cert[])
+b.car~dnorm(0,tau.car)
+
+b.colmu~dnorm(0,0.001)
+b.clarmu~dnorm(0,0.001)
+b.certmu~dnorm(0,.001)
+
+tau~dgamma(.01,.01)
+tau.0 ~dgamma(.01,.01)
+tau.col~dgamma(.01,.01)
+tau.clar~dgamma(.01,.01)
+tau.cert~dgamma(.01,.01)
+tau.car~dgamma(.01,.01)
+
+std<-1/sqrt(tau)
+std.0<- 1/sqrt(tau.0)
+std.col<- 1/sqrt(tau.col)
+std.clar<- 1/sqrt(tau.clar)
+std.cert<- 1/sqrt(tau.cert)
+std.car<- 1/sqrt(tau.car)
+
+#  some outcomes of interest:
+difcol12<- b.col[1]-b.col[2]
+# fit when car=0.40, col=1, clar=1, cert=1:
+FitExample<- exp(b.0+b.car*(0.40-0.63)+b.col[1]+b.clar[1]+b.cert[1])
+}
+", file="diamondB2RedMod.txt")
+
+
+
+data<-list("carat","color","clar","cert",
+    "price","lnprice")
+inits<-function(){ 
+#### 
+b.0 <- rnorm(1,4.0); b.car<-rnorm(1);
+b.col <- rnorm(6); b.clar<-rnorm(5)
+b.cert=rnorm(3);
+b.colmu=mean(b.col); b.clarmu=mean(b.clar)
+b.certmu=mean(b.cert)
+list(b.0=b.0,b.car=b.car,b.col=b.col, b.clar=b.clar, b.cert=b.cert, b.colmu=b.colmu,b.clarmu=b.clarmu,
+b.certmu=b.certmu,
+tau=1,tau.0=1,tau.col=1,tau.clar=1, tau.cert=1,tau.car=1)
+}
+
+
+parameters<-c(
+"b.col","b.clar","b.cert","b.car","b.colmu","b.clarmu",
+"b.certmu","b.0","b.col.adj","b.clar.adj","b.cert.adj","b.0.adj",
+"std","std.0","std.col","std.clar","std.cert","std.car","b.colmu",
+"b.clarmu","b.certmu","b.col.adj","b.clar.adj","b.cert.adj","b.0.adj",
+"difcol12","FitExample")
+
+
+#  new call to OpenBugs
+Odiamond.sim<-bugs(data,inits, parameters,model.file="diamondB2RedMod.txt",
+  n.chains=3, n.iter=5000, n.burnin=200, n.thin=1
+   ,debug=TRUE
+  )
+
+
+print(Odiamond.sim)
+#plot(Odiamond.sim)
+
+names(Odiamond.sim)
+dim(Odiamond.sim$sims.array)
+
+out.sim<-Odiamond.sim$sims.array
+
+matplot(out.sim[,,"b.col[1]"],type="l")
+xnul=locator(1)   #### this pauses the plotting
+matplot(out.sim[,,"b.col.adj[1]"],type="l")
+xnul=locator(1)
+
+plot(density(out.sim[,1,"b.col.adj[1]"]))
+xnul=locator(1)
+plot(acf(out.sim[,1,"b.col[1]"]))
+xnul=locator(1) 
+
+plot(acf(out.sim[,1,"b.col.adj[1]"]))
+xnul=locator(1) 
+

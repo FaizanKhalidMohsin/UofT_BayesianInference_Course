@@ -1,0 +1,323 @@
+############################
+############################
+##
+##     File: diamondRAll.txt
+##     January 31, 2011
+##
+
+This file contains several files which are used to analysis an anova data set.  
+
+The purpose of the data is to predict the price of diamonds from several variables.  
+
+The article associated with this dataset appears in the Journal of Statistics Education, Volume 9, Number 2 (July 2001). 
+
+This data is analysed from WinBugs.  A script file is used to run the Winbugs program in "batch mode".  The analysis uses "redundant" parameters for the factor level variables.
+
+The files in that are contained in this file are:
+
+1) a description of the data
+2) diamondR2Scp.txt -- the script file which is run from Winbugs
+3) diamondR2Mod.txt -- the model file.  This file is read by the script file
+4) diamondDat.txt -- the file containing the data.  Note: this file is truncated n this file
+5) diamondR2In1.txt, diamondR2In2.txt, diamondR2In3.txt.
+
+ 
+
+#####################################
+#####################################
+#
+#  description of data from original source
+#
+#
+#####################################
+
+NAME: Pricing the C's of Diamond Stones
+TYPE: Observational Regression Analysis Data
+SIZE: 308 observations, 5 variables
+
+DESCRIPTIVE ABSTRACT:
+The objective is to infer a sensible pricing model for diamond stones 
+based on data pertaining to their weight (in carats), their colour 
+(either D, E, F, G, H or I) and clarity (either IF, VVS1, VVS2, VS1 
+or VS2). Of interest is the relative worth of the different grades 
+of colour and clarity and whether differences in prices can be 
+attributed to the 3 different certification bodies (either GIA, IGI 
+or HRD).
+
+SOURCE: 
+The data appeared in Singapore's _Business Times_ edition of 
+February 18, 2000.
+
+VARIABLE DESCRIPTIONS: 
+
+Dataset 4c.dat
+
+Columns    
+ 1 -  4  Carat - Weight of diamond stones in carat units
+ 6       Colour - D, E, F, G, H or I
+ 8 - 11  Clarity - IF, VVS1, VVS2, VS1 or VS2
+13 - 15  Certification Body - GIA, IGI or HRD
+18 - 21  Price (Singapore $)
+
+Dataset 4c1.dat
+
+Columns    
+ 1 -  4  Carat - Weight of diamond stones in carat units 
+ 6       Indicator for colour D 
+ 8       Indicator for colour E  
+10       Indicator for colour F  
+12       Indicator for colour G 
+14       Indicator for colour H  
+16       Indicator for clarity IF
+18       Indicator for clarity VVS1 
+20       Indicator for clarity VVS2 
+22       Indicator for clarity VS1 
+24       Indicator for certification body GIA
+26       Indicator for certification body IGI 
+28       Indicator for medium stones between 0.5 to less than 1 carat
+30       Indicator for large stones weighing 1 carat or more 
+32 - 35  Interaction variable med*carat
+37 - 40  Interaction variable large*carat
+42 - 48  Carat squared
+50 - 53  Price (Singapore $) 
+55 - 65  Ln(Price)
+
+Values are aligned and delimited by blanks. There are no missing values.
+
+STORY BEHIND THE DATA:
+Assessing the worth of a diamond stone is no easy task in view of 
+the four C's, namely caratage, colour, clarity and cut. Statistics 
+offers an avenue to infer the pricing of these characteristics.
+
+Additional information about these data can be found in the "Datasets
+and Stories" article "Pricing the C's of Diamond Stones " in the 
+_Journal of Statistics Education_ (Chu 2001).
+
+PEDAGOGICAL NOTES:
+Multiple Linear Regression is employed to construct a pricing model. 
+Of note in this dataset are the presence of nominal, ordinal as well 
+as quantitative data. Operationally, the challenge is how to code
+the nominal and ordinal data in order to proceed with the analysis. 
+A dataset containing the suggested codes is made available as 4C1.dat. 
+The exercise demonstrates the plausibility of at least 2 models.
+ 
+SUBMITTED BY:
+Singfat Chu 
+Faculty of Business Administration 
+National University of Singapore 
+10 Kent Ridge Crescent 
+Singapore 119260 
+fbachucl@nus.edu.sg
+
+#############################################
+#    
+# File: diamondB2REdScp.txt
+#
+# This file is loaded in Winbugs and then run with the tab: Model/Script
+# This will then run the commands in this file. 
+# It will call the model from "diamondBRedMod.txt"
+# It will load data from "diamondDat.txt'
+# It will get intial values from the files: diamondBRedIn(123).txt
+#
+#  *** important note: these files are assumed to be in a particular directory
+#  *** you should change these directory settings.
+#
+#
+#############################################
+#   runs the model for diamond pricing
+#
+#   redundant parameter model
+#
+#   runs the model for diamond pricing
+#
+#   redundant parameter model
+#
+display('log')
+check('c:/mike workstation/BayesCourse9/examples/anova/diamondB2RedMod.txt')
+data('c:/mike workstation/BayesCourse9/examples/anova/diamondDat.txt')
+compile(3)
+inits(1, 'c:/mike workstation/BayesCourse9/examples/anova/diamondB2RedIn1.txt')
+inits(2, 'c:/mike workstation/BayesCourse9/examples/anova/diamondB2RedIn2.txt')
+inits(3, 'c:/mike workstation/BayesCourse9/examples/anova/diamondB2RedIn3.txt')
+gen.inits()
+
+set(b.col)
+set(b.clar)
+set(b.cert)
+set(b.car)
+set(b.colmu)
+set(b.clarmu)
+set(b.certmu)
+set(b.0)
+set(b.col.adj)
+set(b.clar.adj)
+set(b.cert.adj)
+set(b.0.adj)
+set(std)
+set(std.0)
+set(std.col)
+set(std.clar)
+set(std.cert)
+set(std.car)
+set(b.colmu)
+set(b.clarmu)
+set(b.certmu)
+set(b.col.adj)
+set(b.clar.adj)
+set(b.cert.adj)
+set(b.0.adj)
+set(difcol12)
+set(FitExample)
+set(*)
+trace(*)
+update(700)
+clear(*)
+set(b.col)
+set(b.clar)
+set(b.cert)
+set(b.car)
+set(b.0)
+set(b.col.adj)
+set(b.clar.adj)
+set(b.cert.adj)
+set(b.0.adj)
+set(std)
+set(std.0)
+set(difcol12)
+set(FitExample)
+set(*)
+update(2000)
+gr(*)
+stats(*)
+history(*)
+trace(*)
+density(*)
+autoC(*)
+quantiles(*)
+save( 'c:/mike workstation/BayesCourse9/examples/anova/diamondB2RedSV')
+
+ 
+#############################################
+#############################################
+#
+#  File: diamondB2RedMod.txt
+#
+#  This file contains the model file for Winbugs
+#
+#############################################
+
+model{
+for (i in 1:308){
+lnprice[i] ~ dnorm(mu[i],tau)
+mu[i] <- b.0 + carateff[i]+ coleff[i] + clareff[i] + certeff[i]
+carateff[i]<- b.car*(carat[i]-0.63)  # carat effect 
+coleff[i]<- b.col[color[i]] # color effect
+clareff[i]<-b.clar[clar[i]] # clarity effect
+certeff[i]<-b.cert[cert[i]] # certification group effect
+#
+#  dummy out price since not used
+#
+price[i]~dnorm(0,1)
+}
+
+for(icol in 1:6){ 
+   b.col[icol]~dnorm(b.colmu,tau.col)
+  b.col.adj[icol]<-b.col[icol] -mean(b.col[])   }
+for(iclar in 1:5){
+  b.clar[iclar]~dnorm(b.clarmu,tau.clar)
+  b.clar.adj[iclar]<-b.clar[iclar]-mean(b.clar[]) }
+for(icert in 1:3){
+  b.cert[icert]~dnorm(b.certmu,tau.cert)
+  b.cert.adj[icert]<-b.cert[icert]-mean(b.cert[]) }
+
+b.0~dnorm(0,tau.0)
+  b.0.adj<-b.0+mean(b.col[])+mean(b.clar[])+mean(b.cert[])
+b.car~dnorm(0,tau.car)
+
+b.colmu~dnorm(0,0.001)
+b.clarmu~dnorm(0,0.001)
+b.certmu~dnorm(0,.001)
+
+tau~dgamma(.01,.01)
+tau.0 ~dgamma(.01,.01)
+tau.col~dgamma(.01,.01)
+tau.clar~dgamma(.01,.01)
+tau.cert~dgamma(.01,.01)
+tau.car~dgamma(.01,.01)
+
+std<-1/sqrt(tau)
+std.0<- 1/sqrt(tau.0)
+std.col<- 1/sqrt(tau.col)
+std.clar<- 1/sqrt(tau.clar)
+std.cert<- 1/sqrt(tau.cert)
+std.car<- 1/sqrt(tau.car)
+
+#  some outcomes of interest:
+difcol12<- b.col[1]-b.col[2]
+# fit when car=0.40, col=1, clar=1, cert=1:
+FitExample<- exp(b.0+b.car*(0.40-0.63)+b.col[1]+b.clar[1]+b.cert[1])
+}
+
+
+
+#############################################
+#############################################
+#
+#  File: diamondDat.txt
+#
+#  This file contains the Data... 
+#  (note, truncated in the middle of the file)
+#
+#############################################
+
+carat[] color[] clar[] cert[] price[] lnprice[]
+0.3 1 5 1 1302   7.17
+0.3 2 4 1 1510   7.32
+0.3 4 2 1 1510   7.32
+0.3 4 4 1 1260   7.14
+0.31 1 4 1 1641   7.40
+0.31 2 4 1 1555   7.35
+0.31 3 4 1 1427   7.26
+0.31 4 3 1 1427   7.26
+0.31 5 5 1 1126   7.03
+0.31 6 4 1 1126   7.03
+0.32 3 4 1 1468   7.29
+[[[[ 
+.
+Truncated here
+.
+]]]
+1.02 3 3 3 10796   9.29
+1.06 5 3 3 9890   9.20
+1.02 5 5 3 8959   9.10
+1.09 6 3 3 9107   9.12
+END
+
+
+#############################################
+#############################################
+#
+#  The files that contain the intiation files...
+#  
+##########
+#  File: diamondB2RedIn1.txt
+#
+
+list(b.0=4.0,b.car=0,b.col=c(1,1,1, 1,1,1), b.clar=c(1,1,1,1,1), b.cert=c(1,1,1), b.colmu=0,b.clarmu=0,b.certmu=0,tau=1,tau.0=1,tau.col=1,tau.clar=1, tau.cert=1,tau.car=1)
+
+
+################
+#  File: diamondB2RedIn2.txt
+#
+
+list(b.0=6.0,b.car=2,b.col=c(-1,1,-1, 1,-1,1), b.clar=c(-1,1,-1,-1,1), b.cert=c(1,-1,1),  b.colmu=0,b.clarmu=0,b.certmu=0,tau=10,tau.0=10,tau.col=10,tau.clar=10, tau.cert=10,tau.car=10)
+
+
+#############
+#  File: diamondB2RedIn3.txt
+#
+
+list(b.0=2.0,b.car=3,b.col=c(1,-1,1, -1,1,-1), b.clar=c(10,1,10,1,10), b.cert=c(1,10,1),b.colmu=0,b.clarmu=0,b.certmu=0,tau=1,tau.0=10,tau.col=1,tau.clar=10, tau.cert=1,tau.car=10)
+
+
+

@@ -1,0 +1,18 @@
+
+model{
+  for( i in 1:14){
+   hypoten[i] ~ dbin(mu[i], n[i])
+   logit(mu[i]) <- b0 + b.smok*smoke[i]+ b.ob*obese[i]+ b.sn*snore[i] + 
+     b.male*male[i] + b.smsn*smoke[i]*snore[i] + b[i]
+    b[i] ~dnorm(0, tau.b)
+   }
+  b.smok ~ dnorm(0, .04) # so, sd =5.  exp(5) ~ 148 which is huge
+  b.ob ~ dnorm(0, .04) 
+  b.sn ~ dnorm(0, .04) 
+  b.male ~ dnorm(0, .04) 
+  b0 ~ dnorm(0, .04) 
+  b.smsn ~dnorm(0, .04)
+  sd.b ~ dunif(0, 5)
+  tau.b <- 1/sd.b/sd.b
+  }
+  

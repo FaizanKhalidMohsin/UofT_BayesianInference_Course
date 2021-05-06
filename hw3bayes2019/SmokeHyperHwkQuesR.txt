@@ -1,0 +1,107 @@
+
+#  SmokeHyperBaseR.txt
+#  Michael Escobar
+#  March 5, 2017
+
+
+WorkDir<- "c:/mike workstation/Bayescourse14/Examples/SmokingHypertenBinaryData" 
+#  Note: change working directory to where everything is
+
+setwd(WorkDir)
+  
+ 
+ 
+library(R2OpenBUGS)
+ 
+#
+# 
+#data from Healy, page 90.
+#  (MJR Healy, 1988, Glim: An Introduction, Clarendon Press: Oxford.)
+#  Looking to see if Smoking is a risk factor for hypertension, controlling for obesity, snoring, and gender
+#  Note 1: there was no males or females who were smokers and obese and who did not snore (so 1 1 0 had no exposures)
+#  Note 2: here we are simply looking at the effect of smoking given the other factors.  We are ignoring the possibility that 
+#  obesity might be related to smoking or that snoring might be strongly effected by smoking and obesity.  
+#  In modern epi, these factors might be consider to be in the <<causal path>> and perhaps you might not control for them in this way.
+cat(
+"smoke  obese  snore male hypoten n
+0 0 0 1 5 60
+0 0 0 0 10 149
+1 0 0 1 2 17
+1 0 0 0 6 16
+0 1 0 1 1 12
+0 1 0 0 2 9
+0 0 1 1 36 187
+0 0 1 0 28 138
+1 0 1 1 13 85
+1 0 1 0 4 39
+0 1 1 1 15 51
+0 1 1 0 11 28
+1 1 1 1 8 23
+1 1 1 0 4 12
+", file= "SmokeHyperData.txt")
+
+ 
+SmokeHyper=read.table("SmokeHyperData.txt",header=TRUE,sep = "")
+attach(SmokeHyper)
+
+
+  
+cat("
+model{
+  for( i in 1:14){
+   hypoten[i] ~ dbin(mu[i], n[i])
+   logit(mu[i]) <- b0 + b.smok*smoke[i]+ b.ob*obese[i]+ b.sn*snore[i] + 
+     b.male*male[i] + b.smsn*smoke[i]*snore[i] + b[i]
+    b[i] ~dnorm(0, tau.b)
+   }
+  b.smok ~ dnorm(0, .04) # so, sd =5.  exp(5) ~ 148 which is huge
+  b.ob ~ dnorm(0, .04) 
+  b.sn ~ dnorm(0, .04) 
+  b.male ~ dnorm(0, .04) 
+  b0 ~ dnorm(0, .04) 
+  b.smsn ~dnorm(0, .04)
+  sd.b ~ dunif(0, 5)
+  tau.b <- 1/sd.b/sd.b
+  }
+  ", file="SmokeHyperMod3.txt")
+  
+  
+bugM3.dat=list("hypoten", "n", "smoke", "obese", "snore", "male")  # what variable you need in the model
+
+initM3.fun=function(){ list(  b=runif(14,-.8,-.2), 
+    b0=runif(1,-.8,-.2),
+    b.smok=runif(1,-.8,-.2),b.ob=runif(1,-.8,-.2), b.sn=runif(1,-.8,-.2),
+	b.male=runif(1,-.8,-.2), b.smsn=runif(1, -8,-.2), sd.b=runif(1,.2,.8)	
+    ) }
+
+	
+paramsM3=c("b0", "b.smok", "b.ob", "b.sn", "b.male", "b.smsn" , "sd.b")
+     ### what variables you want to monitor
+
+
+#### Could change the code below...
+SmokeHypeBaseM3=bugs(bugM3.dat, initM3.fun, paramsM3, model.file="SmokeHyperMod3.txt",
+    n.chains=3, n.iter=3000, n.burnin=1,
+    n.thin=1 , debug=TRUE
+        )
+
+print(SmokeHypeBaseM3,dig=3)
+
+
+if(T){
+SArray= SmokeHypeBaseM3$sims.array
+vname=attr(SArray,"dimnames")[3][[1]]
+chainL=attr(SArray,"dim")[1][[1]]
+for(i in 1:length(vname)){ 
+    nn=vname[i]
+    plot(density(SArray[,,nn]), main=nn)
+    xnul=locator(1)    
+    acf( SArray[,1,nn], main=nn)  #note: this is only for 1st chain
+    xnul=locator(1)
+    matplot(1:chainL,SArray[,,nn], main=nn,xlab="index",type="l")
+    xnul=locator(1)
+    }
+} 
+
+		
+		

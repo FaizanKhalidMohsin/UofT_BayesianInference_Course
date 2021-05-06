@@ -1,0 +1,789 @@
+#    RsimProgY2015
+#    February 7, 2015
+#
+#    Modified from program run in bayescourseY7
+#   ----------------------
+#  This R file will generate two datasets and then fit different priors
+#
+#  ---------------------
+#
+#  The data sets will be:
+#       mu[1:5]~ norm( mu0, sd0)  where 2nd term is sd
+#       grp[1:bign] --- one of ngrp groups 
+#       y[i] ~ norm(mu[grp[i], sd) 
+#
+#  For the first data set, the sd0 will be zero (all means equal)
+#  For the second data set, the sd0 is fixed and not equal to zero, 
+#        also, reorder so that mu[1] is the min and mu[2] is max
+#
+#  Also, note that set.seed is used to fix the datasets...
+#
+#   ---------------------
+#
+#    priors used will be:
+#
+#  TauGamma:
+#  tau0 ~dgamma(a,b)
+#  will use (a,b) to be (.01,.01) or (1,1), etc
+# 
+#  TauUni:
+#  tau0 ~dunif(0,b)
+#
+#    
+#  SDUni:
+#  sd0~dunif(0,b)
+#  
+#
+#  NOTE: tau0=1/(sd0*sd0)
+#
+
+
+#  Need to do this for Window 7 running in 64bit...
+#bugdir="c:/Program Files/WinBUGS14/"
+#bugdir="c:/MyProg/WinBUGS14/"
+
+
+#library(R2WinBUGS)
+library(R2OpenBUGS)
+
+WorkDir<- "c:/mike workstation/BayesCourse12/Examples/Anova priors/"
+setwd(WorkDir)
+
+
+set.seed(328)
+
+
+# Model parameters
+ngrp<-5
+nn<-10
+nbig<-ngrp*nn
+mu0<-10
+sd0<-1
+sd<-2
+
+
+#  data 1
+grp<-rep(1:ngrp, each=nn)
+mu<-rep(mu0,ngrp)
+mu<-sort(mu)
+mu[c(2, ngrp)]<-mu[c(ngrp, 2)]
+set.seed(345)
+y<-rnorm(nbig,mu[grp],sd)
+
+y1<-y
+mu1<-mu
+grp1<-grp
+
+
+#  data 2
+grp<-rep(1:ngrp, each=nn)
+set.seed(545)
+mu<-rnorm(ngrp,mu0,sd0)
+mu<-sort(mu)
+mu[c(2, ngrp)]<-mu[c(ngrp, 2)]
+set.seed(499)
+y<-rnorm(nbig,mu[grp],sd)
+
+y2<-y
+mu2<-mu
+grp2<-grp
+
+rbind(mu1,mu2)
+
+#  frequentist analysis of these data sets.
+fitt1<-lm(y1~factor(grp))
+anova(fitt1)
+fitted(fitt1)
+boxplot(y1~grp)
+
+
+fitt2<-lm(y2~factor(grp))
+anova(fitt2)
+fitted(fitt2)
+boxplot(y2~grp)
+
+#------------------
+#   winbugs analyses
+#------------------
+
+###  load model files.
+
+#####source(file="RsimProgModelFiles.txt")
+####################################
+####################################
+####
+####   load model files
+####
+#####################################
+#####################################
+
+cat("
+#modelTauGamma.txt:
+#==================================
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+  
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  #tau0 ~dunif(0,b)
+  #a~dnorm(0,1)  # dummies out this parameter
+  
+  sd0<-1/sqrt(tau0)
+  
+  #----------------
+  
+  #sd0~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)
+  
+  #a~dnorm(0,1)  # dummies out this parameter
+  #tau0<-1/(sd0*sd0)
+  
+  }
+#  ======================================
+", file="modelTauGamma.txt")
+
+cat("
+#
+#  modelTauUni.txt
+#  ---------------
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+ 
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  #tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  tau0 ~dunif(0,b)
+  a~dnorm(0,1)  # dummies out this parameter
+  
+  sd0<-1/sqrt(tau0)
+  
+  #----------------
+  
+  #sd0~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)
+  
+  #a~dnorm(0,1)  # dummies out this parameter
+  #tau0<-1/(sd0*sd0)
+  
+  }
+#==============================
+",file="modelTauUni.txt")
+
+cat("
+#modelSDUni.txt
+#--------------
+#
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  #tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  #tau0 ~dunif(0,b)
+  #  a~dnorm(0,1)  # dummies out this parameter
+  
+  #sd0<-1/sqrt(tau0)
+  #----------------
+
+  sd0~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)
+  
+  a~dnorm(0,1)  # dummies out this parameter
+  tau0<-1/(sd0*sd0)
+  }
+#=============================
+  ", file="modelSDUni.txt")
+  
+  
+cat("
+#modelSDHalfNorm.txt
+#-------------------
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+  
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  #tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  #tau0 ~dunif(0,b)
+  #  a~dnorm(0,1)  # dummies out this parameter
+  
+  #sd0<-1/sqrt(tau0)
+  
+  #----------------
+  
+  #sd0~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)   # code for truncation for Winbugs
+  sd0~dnorm(0,b)T(0,)    # code for truncation for Openbugs
+   
+  a~dnorm(0,1)  # dummies out this parameter
+  tau0<-1/(sd0*sd0)
+  }
+ ", file="modelSDHalfNorm.txt")
+
+
+
+cat("
+#modelVARUni.txt
+#--------------
+#
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  #tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  #tau0 ~dunif(0,b)
+  #  a~dnorm(0,1)  # dummies out this parameter
+  
+  #sd0<-1/sqrt(tau0)
+  #----------------
+
+  sd0<-sqrt(sd02)
+  sd02~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)
+  
+  
+  a~dnorm(0,1)  # dummies out this parameter
+  tau0<-1/(sd0*sd0)
+  }
+#=============================
+  ", file="modelVARUni.txt")
+  
+  
+cat("
+#modelVARHalfNorm.txt
+#-------------------
+#
+#  This is fits an ANOVA model with:
+#      nbig = # of total observations
+#      ngrp = # of grps
+#    
+model{
+  for(i in 1:nbig){
+    y[i] ~dnorm(mu[grp[i]], tau)
+    }
+    
+  for(igrp in 1:ngrp){
+    mu[igrp]~dnorm(mu0,tau0)}
+  
+  mudiff<-mu[2]-mu[1]  
+  mu0~dnorm(0,.01)
+  tau~dgamma(.01,.01)
+  sd<-1/sqrt(tau)
+  
+  #  different priors for tau0
+  
+  #tau0 ~dgamma(a,b)
+  #  will use (a,b) to be (.01,.01) or (1,1), etc
+  #tau0 ~dunif(0,b)
+  #  a~dnorm(0,1)  # dummies out this parameter
+  
+  #sd0<-1/sqrt(tau0)
+  
+  #----------------
+  
+  #sd0~dunif(0,b)
+  #sd0~dnorm(0,b)I(0,)   # code for truncation for Winbugs
+  sd02~dnorm(0,b)T(0,)    # code for truncation for Openbugs
+  sd0<-sqrt(sd02)
+  
+  a~dnorm(0,1)  # dummies out this parameter
+  tau0<-1/(sd0*sd0)
+  }
+ ", file="modelVARHalfNorm.txt")
+
+
+
+
+####################################
+####################################
+####
+####   end model files
+####
+#####################################
+#####################################
+
+
+
+
+#  first, dataset 1
+
+y<-y1
+grp<-grp1
+
+# note: already have defined nbig and ngrp
+#  also need: y, grp  which are the data
+#       need: a,b which are parameters for different priors
+#
+#  Initialize: mu[1:ngrp], mu0, tau, and either tau0 or sd0
+#  parameters: mudiff, tau0, sd0
+#
+
+a<-.01; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+taugamp01d1<-bugs(data,inits,parameters, model.file="modelTauGamma.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(taugamp01d1)
+
+#--------------------   
+
+a<-1; b<-1
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+taugam1d1<-bugs(data,inits,parameters, model.file="modelTauGamma.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(taugam1d1)
+
+#--------------------   
+
+
+a<-1; b<-10
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+tauUni10d1<-bugs(data,inits,parameters, model.file="modelTauUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(tauUni10d1)
+
+#--------------------   
+
+
+a<-1; b<-100
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+tauUni100d1<-bugs(data,inits,parameters, model.file="modelTauUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(tauUni10d1)
+
+#--------------------   
+
+a<-1; b<-4
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDUni4d1<-bugs(data,inits,parameters, model.file="modelSDUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDUni4d1)
+
+#--------------------   
+
+a<-1; b<-10
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDUni10d1<-bugs(data,inits,parameters, model.file="modelSDUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDUni10d1)
+
+#--------------------   
+
+a<-1; b<-.1
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDHalfNormp1d1<-bugs(data,inits,parameters, model.file="modelSDHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDHalfNormp1d1)
+
+#--------------------   
+
+a<-1; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDHalfNormp01d1<-bugs(data,inits,parameters, model.file="modelSDHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDHalfNormp01d1)
+
+#--------------------   
+
+#--------------------   
+
+a<-1; b<-16
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd02=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARUni4d1<-bugs(data,inits,parameters, model.file="modelVARUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARUni4d1)
+
+#--------------------   
+
+a<-1; b<-100
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARUni10d1<-bugs(data,inits,parameters, model.file="modelVARUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARUni10d1)
+
+#--------------------   
+
+a<-1; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd02=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARHalfNormp1d1<-bugs(data,inits,parameters, model.file="modelVARHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARHalfNormp1d1)
+
+#--------------------   
+
+a<-1; b<-.0001
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARHalfNormp01d1<-bugs(data,inits,parameters, model.file="modelVARHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARHalfNormp01d1)
+
+#--------------------   
+
+       
+     
+       
+         
+
+#  first, dataset 2
+
+y<-y2
+grp<-grp2
+
+# note: already have defined nbig and ngrp
+#  also need: y, grp  which are the data
+#       need: a,b which are parameters for different priors
+#
+#  Initialize: mu[1:ngrp], mu0, tau, and either tau0 or sd0
+#  parameters: mudiff, tau0, sd0
+#
+
+a<-.01; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+taugamp01d2<-bugs(data,inits,parameters, model.file="modelTauGamma.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(taugamp01d2)
+
+#--------------------   
+
+a<-1; b<-1
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+taugam1d2<-bugs(data,inits,parameters, model.file="modelTauGamma.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(taugam1d2)
+
+#--------------------   
+
+
+a<-1; b<-10
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+tauUni10d2<-bugs(data,inits,parameters, model.file="modelTauUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(tauUni10d2)
+
+#--------------------   
+
+
+a<-1; b<-100
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  tau0=runif(1,.1,5))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+tauUni100d2<-bugs(data,inits,parameters, model.file="modelTauUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(tauUni10d2)
+
+#--------------------   
+
+a<-1; b<-4
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDUni4d2<-bugs(data,inits,parameters, model.file="modelSDUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDUni4d2)
+
+#--------------------   
+
+a<-1; b<-10
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDUni10d2<-bugs(data,inits,parameters, model.file="modelSDUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDUni10d2)
+
+#--------------------   
+
+a<-1; b<-.1
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDHalfNormp1d2<-bugs(data,inits,parameters, model.file="modelSDHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDHalfNormp1d2)
+
+#--------------------   
+
+a<-1; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+SDHalfNormp01d2<-bugs(data,inits,parameters, model.file="modelSDHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(SDHalfNormp01d2)
+
+#--------------------   
+
+#--------------------   
+
+a<-1; b<-16
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd02=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARUni4d2<-bugs(data,inits,parameters, model.file="modelVARUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARUni4d2)
+
+#--------------------   
+
+a<-1; b<-100
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARUni10d2<-bugs(data,inits,parameters, model.file="modelVARUni.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARUni10d2)
+
+#--------------------   
+
+a<-1; b<-.01
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARHalfNormp1d2<-bugs(data,inits,parameters, model.file="modelVARHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARHalfNormp1d2)
+
+#--------------------   
+
+a<-1; b<-.0001
+
+data<-list("nbig", "ngrp", "y", "grp", "a", "b")
+inits<-function(){list(mu=rnorm(ngrp,0,10),mu0=rnorm(1,0,10),tau=runif(1,.1,5),
+                  sd0=runif(1,.1,1))}
+parameters<-c("mudiff", "tau0", "tau", "sd0", "sd")
+
+VARHalfNormp01d2<-bugs(data,inits,parameters, model.file="modelVARHalfNorm.txt",
+       n.chains=3,n.iter=2000,n.burnin=500,
+       n.thin=1,#,debug=TRUE
+                   )
+print(VARHalfNormp01d2)
+
+#--------------------   
+
+                

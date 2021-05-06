@@ -1,0 +1,10 @@
+
+model{
+  for( i in 1:12){
+   diff[i] ~ dnorm(mu[i], Sediff[i])
+   mu[i] ~ dnorm(theta, sd)
+   }
+  theta ~ dnorm(0, .1) # so, sd =5.  exp(5) ~ 148 which is huge
+  sd ~ dnorm(0, .1) 
+  }
+  

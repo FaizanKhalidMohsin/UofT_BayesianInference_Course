@@ -1,0 +1,20 @@
+
+    ### model3
+    model{
+    for( i in 1:16){
+    sx1[i]<- (x[i]-31)/9.52
+    sx2[i]<- (pow(x[i],2)-1046)/595.496
+    y[i]<-  (oy[i]-3283.125)/418.3434
+    y[i]~dnorm(mu[i],tau)
+    mu[i]<-  del[1]*beta[1]*(sx1[i]) + del[2]*beta[2]*(sx2[i])
+     }
+    beta[1]~dnorm(0,0.0625)
+    beta[2]~dnorm(0,0.0625)
+    tau~dgamma(.5,.01)
+    for(k in 1:2){del[k]~dbern(0.5)}
+    for(i1 in 1:2){
+    for(i2 in 1:2){
+    mod[i1,i2]<-equals((2-i1),del[1])*equals( (2-i2),del[2])
+    }}
+    }    
+    

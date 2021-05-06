@@ -1,0 +1,85 @@
+#
+#  CowShock  -- simple program file
+#  Michael Escobar 
+#  Feb 8, 2011
+#
+
+ WorkDir<- "c:/mike workstation/Bayescourse9/Examples/CowShock"
+ # Note: change this to the file where everything is
+ setwd(WorkDir)
+  
+#  specify where the WinBugs files are:
+#  WinDir="c:/Program Files/WinBUGS14/"
+WinDir="c:/MyProg/WinBugs14/"
+ 
+CowShock=read.table("CowShock.dat",header=TRUE,sep = "")
+attach(CowShock)
+ 
+ 
+ 
+library(R2WinBUGS)
+Nobs=84
+data<-list("Nobs", "cow", "block","Y","curr","N")
+
+
+#
+#-------------------------------------------
+# overdisperse model
+# Write the model file
+#
+
+cat("
+#
+#######################
+#
+#  CowShockModRedOvrGam.txt
+#  --model has: redundant parameters,overdisper, gamma precisions
+#
+model
+{
+for (i in 1:Nobs)
+{
+Y[i] ~ dbin(p[i],N[i])
+logit(p[i]) <- b.cow[cow[i]] + b.block*(2*block[i]-3) + b.curr[curr[i]+1] +b[i] +b.0
+b[i]~dnorm(0, tau)    # overdispersion parameter
+b.adj[i]<-b[i] -mean(b[])
+} 
+
+b.0~dnorm(0,.001)     
+b.0.adj<-b.0 +mean(b.cow[]) +mean(b.curr[])  + mean(b[]) # redundant parameter design
+
+for(jc in 1:7){
+b.cow[jc]~dnorm(b.cow.0,tau.cow)
+b.cow.adj[jc]<-b.cow[jc] -mean(b.cow[])}
+b.cow.0~dnorm(0,.1)
+
+b.block~dnorm(0,.01)
+# log(odds) somewhere between -4 and 4...  so this is wide
+
+for(jcr in 1:6){
+b.curr[jcr]~dnorm(b.curr.0,tau.curr)
+b.curr.adj[jcr]<-b.curr[jcr]-mean(b.curr[])}
+b.curr.0~dnorm(0,.1)
+
+tau~dgamma(.1,.4)
+tau.cow~dgamma(.1,.4)
+tau.curr~dgamma(.1,.4)
+}", file="AROGmod.txt")
+
+
+inits<-function(){list(b.cow=rnorm(7,0,1),b.block=rnorm(1,0,1),
+                      b.curr=rnorm(6,0,1),tau=runif(1,.5,2),
+                      tau.cow=runif(1,.5,2),tau.curr=runif(1,.5,2),
+                      b.cow.0=rnorm(1,0,1), b.curr.0=rnorm(1,0,1),
+                      b.0=rnorm(1,0,1),b=rnorm(Nobs,0,1))
+                      }
+           
+ 
+parameters=c("b.cow","b.cow.adj","b.curr","b.curr.adj","b.0","b.0.adj",
+      "b.block","b","b.adj","tau","tau.cow","tau.curr")
+ 
+CowShockROG<-bugs(data,inits,parameters, model.file="AROGmod.txt",
+        n.chains=3,n.iter=5100,n.burnin=100,
+        n.thin=1, bugs.directory=WinDir#,debug=TRUE
+                    )
+print(CowShockROG)

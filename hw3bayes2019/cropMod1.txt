@@ -1,0 +1,80 @@
+
+    ### model1
+    model{
+    
+    for( i in 1:16){
+    
+    sx1[i]<- (x[i]-31)/9.52
+    y[i]<-  (oy[i]-3283.125)/418.3434
+    
+    
+    y[i]~dnorm(mu[i],tau)
+    mu[i]<- beta[1]+beta[2]*(sx1[i])  
+    
+    
+    ######################################
+    #        model checking steps are here.........
+    
+    #   getting the residuals for the observed values...
+    #   note: I am deviating from the bugs manual... not getting the moments.
+    
+    res[i]<-(y[i]-mu[i])                 #  estimate of the residuals for this model
+    stdres[i]<-res[i]*sqrt(tau)        #  for the standardized residuals
+    
+    dev1.obs[i]<-pow(res[i],2)
+    dev2.obs[i]<-pow(stdres[i],2)
+    
+    #  getting a replicated sample..... This is a sample of the predictive distribution
+    
+    y.rep[i]~dnorm(mu[i],tau)
+    p.smaller[i] <-step(y[i]-y.rep[i])       # check to see the probability of getting a more extreme value
+    
+    #  residual and moments of replicated data....   this gives the predicted distribution for these values.
+    res.rep[i]<- y.rep[i] - mu[i]
+    stdres.rep[i]<- res.rep[i]*sqrt(tau)
+    
+    dev1.rep[i]<-pow(res.rep[i],2)
+    dev2.rep[i]<-pow(stdres.rep[i],2)
+    
+    #  likelihood for each observed and replicated data....
+    #  note: need to know the density function of the probability model
+    loglike[i]<-  (0.5)*log(tau/6.283) + (-0.5)*tau*pow((y[i]-mu[i]),2)
+    loglike.rep[i]<-  (0.5)*log(tau/6.283) + (-0.5)*tau*pow((y.rep[i]-mu[i]),2)
+    
+    p.inv[i]<- 1/exp(loglike[i])               #  this is to find the predictive ordinate of the observations	
+    
+    }
+    
+    beta[1]~dnorm(0,0.0625)
+    beta[2]~dnorm(0,0.0625)
+    
+    
+    
+    ##############################
+    #     summing the diagnostic values
+    
+    chidev1.obs <- sum(dev1.obs[])
+    chidev2.obs <- sum(dev2.obs[])
+    
+    chidev1.rep <- sum( dev1.rep[] )
+    chidev2.rep <- sum( dev2.rep[] )
+    
+    chidev1.pval<-step(chidev1.obs-chidev1.rep)
+    chidev2.pval<-step(chidev2.obs-chidev2.rep)
+    
+    #   Deviance statistic
+    dev<-   -2*sum(loglike[])
+    dev.rep <-  -2*sum(loglike.rep[])
+    dev.pval<-step(dev-dev.rep)
+    
+  
+    tau~dgamma(.5,.01)
+    
+    #abeta[1]<-beta[1]*9.52/418.34
+    abeta[2]<-beta[2]*9.52/418.34
+    #abeta[3]<-beta[3]*12.549/79.976
+    #abeta[4]<-beta[4]*4.658/79.976
+    
+    }
+    
+    

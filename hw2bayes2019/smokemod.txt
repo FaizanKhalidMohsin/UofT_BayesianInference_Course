@@ -1,0 +1,41 @@
+
+model{
+    for(i in 1:20)
+    {
+    #smoke   age   death  pyears 
+    
+    death[i]~dpois(lam[i])
+    log(lam[i]) <- log(pyears[i]) + beta0 + beta.s[smoke[i]] + beta.c[age[i]] + b[i] 
+    b[i] ~dnorm(0,tau)
+    b.adj[i] <- b[i] - mean(b[]) 
+    }
+    for(is in 1:4){
+    beta.s[is]~dnorm(0,tau.s)
+    beta.s.adj[is] <- beta.s[is] -mean(beta.s[]) 
+    }
+    for(ic in 1:5){
+    beta.c[ic]~dnorm(0,tau.c)
+    beta.c.adj[ic] <- beta.c[ic] - mean(beta.c[])
+    }
+    #  Note: total person-years per categories is less than 115,000
+    #  ln(115000) ~  = 11.65....
+    #  so rate has to be bigger than 1/115,000 and log(rate) > -11.65... 
+    #  so log( base rate) should be between about -12 and 12.
+    # 1/12/12 is about .00694
+    beta0 ~ dnorm(0, .00694)  
+    beta0.adj <- beta0 + mean(b[]) + mean(beta.s[])+ mean(beta.c[])
+    # for the <extra poisson variation> ... 
+    # assume bounded by very big number... say 1000 times... 
+    # so log(1000) is about 2.3*4 which is about 9.2
+    std ~ dunif(0, 9)
+    tau <- 1/std/std
+    # for the relative risk between groups... a very large number would be 100 times, 
+    #  so, log(100) is about 2.3*2 or about 4.6
+    #  also, note that 1/5/5 is 0.04
+    #  
+    std.s ~dunif(0, 5)
+    tau.s <- 1/std.s/std.s
+    std.c ~ dunif(0,5) 
+    tau.c <- 1/std.c/std.c
+    beta.o~dnorm(0, .04)
+    }

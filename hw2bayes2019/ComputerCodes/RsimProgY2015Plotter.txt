@@ -1,0 +1,91 @@
+####  plotter for RsimProg
+#     February 7, 2015
+#
+#   
+#  Need to do this for Window 7 running in 64bit...
+#bugdir="c:/Program Files/WinBUGS14/"
+#bugdir="c:/MyProg/WinBUGS14/"
+
+
+#library(R2WinBUGS)
+library(R2OpenBUGS)
+
+WorkDir<- "c:/mike workstation/BayesCourse12/Examples/Anova priors/"
+setwd(WorkDir)
+
+
+set.seed(328)
+
+
+# Model parameters
+ngrp<-5
+nn<-10
+nbig<-ngrp*nn
+mu0<-10
+sd0<-1
+sd<-2
+
+
+#  data 1
+grp<-rep(1:ngrp, each=nn)
+mu<-rep(mu0,ngrp)
+mu<-sort(mu)
+mu[c(2, ngrp)]<-mu[c(ngrp, 2)]
+set.seed(345)
+y<-rnorm(nbig,mu[grp],sd)
+
+y1<-y
+mu1<-mu
+grp1<-grp
+
+
+#  data 2
+grp<-rep(1:ngrp, each=nn)
+set.seed(545)
+mu<-rnorm(ngrp,mu0,sd0)
+mu<-sort(mu)
+mu[c(2, ngrp)]<-mu[c(ngrp, 2)]
+set.seed(499)
+y<-rnorm(nbig,mu[grp],sd)
+
+y2<-y
+mu2<-mu
+grp2<-grp
+
+rbind(mu1,mu2)
+
+#  frequentist analysis of these data sets.
+fitt1<-lm(y1~factor(grp))
+anova(fitt1)
+fitted(fitt1)
+fitt2<-lm(y2~factor(grp))
+anova(fitt2)
+fitted(fitt2)
+
+pdf(file="boxplots.pdf", width=10,height=8)
+
+par(mfrow=c(1,2))
+boxplot(y1~grp,main="Data 1: Equal means")
+boxplot(y2~grp,main="Data 2: Unequal means")
+par(mfrow=c(1,1))
+
+dev.off()
+
+
+
+
+#### plot of a gamma(2,1) distribution
+#
+
+xx=seq(qgamma(.00001,2,1), qgamma(.999,2,1), length=200)
+yy=dgamma(xx,2,1)
+plot(xx,yy,type="l")
+ 
+pdf(file="sigmaSampled.pdf", width=10, height=8)
+xx=rgamma(10000,2,1)
+plot(density(1/sqrt(xx)),main="Density for 1/sqrt(tau)", 
+           sub="tau sampled from gamma(2,1)")
+ dev.off()
+ 
+ 
+

@@ -1,0 +1,9 @@
+
+model{
+  for( i in 1:12){
+   diff[i] ~ dnorm(theta, Sediff[i] + sd)
+   }
+  theta ~ dnorm(0, .1) 
+  sd ~ dnorm(0, .1) 
+  }
+  

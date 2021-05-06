@@ -1,0 +1,14 @@
+
+    model{	
+    for(i in 1:20){
+    case[i] ~ dpois(lam[i])
+    ### code needed here
+    
+    
+    }
+    
+    ### code needed here
+    
+    
+    }
+    
