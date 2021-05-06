@@ -1,0 +1,46 @@
+#
+#  Data from Holford (2002), Multivariate Methods in Epidemiology, page 100
+#  He notes that this data originally came from 
+#      Mantel and Stark, Biometrics, 1968, 24: 997-1005.
+#
+#  Date is the number of Down syndrome births in Michigan from 1950 to 1964.  
+#  There was interest in looking at the birth order on the risk.  
+#
+#  data on the number of Downs Syndrome Births
+#
+#  Column 1: AgeCat: 1= <20; 2=20-24; 3=25-29; 4=30-34; 5=35-39; 6=40+
+#  Column 2: BirOrd: Birth order:  1,2,3,4... 5 means 5+
+#  Column 3: NumDown: number of down births
+#  Column 4: NumLivBir: Number of live births 
+#
+#
+1 1 107 230061
+1 2  25  72202
+1 3   3   15050
+1 4 1   2293
+1 5 0   327
+2 1 141 329449
+2 2 150 326701
+2 3  71 175702
+2 4  26 68800
+2 5  8   30666
+3 1  60  114920
+3 2  110 208667
+3 3  114 207081
+3 4   64 132434
+3 5   63 123419
+4 1   40  39487
+4 2   84  83228
+4 3  103 117300
+4 4   89  98301
+4 5  112 149919
+5 1   39  14208
+5 2   82  28466
+5 3  108  45026
+5 4  137  46075
+5 5  262 104088
+6 1   25   3052
+6 2   39   5375
+6 3   75   8660
+6 4   96   9834
+6 5  295  34392
